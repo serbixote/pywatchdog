@@ -1,12 +1,12 @@
 from _signal import SIGKILL
 from subprocess import Popen, PIPE
 from multiprocessing import Process, Manager
-import os
+from os import setsid, getpgid, killpg
+from utils import are_valid_paths
 
 
 DAM_EVENT = 'dam_event'
 DAM_ON = 'on'
-
 
 INOTIFY = 'inotifywait'
 MONITOR_RECURSIVE = '-rm'
@@ -22,7 +22,7 @@ PATTERN = '"%w,%e,%f"'
 class FileSystemWatchDog:
 
     def __init__(self, dams=None):
-        if dams is None and not self.are_valid_dams(dams):
+        if dams is not None and not are_valid_paths(dams):
             raise ValueError("Invalid dams, please check the paths")
 
         self.dams = dams
@@ -31,28 +31,10 @@ class FileSystemWatchDog:
         self.subprocess_pid = self.manager.Value('pid', -1)
         self.caught_dams = self.manager.dict()
 
-    @staticmethod
-    def are_valid_dams(dams):
-        """
-        This method is internally called to check the set string path list. It may be called
-        like a static method with the same aim from outer
-
-        :param dams: List of strings with the paths for watching
-        :return: False if any path of the list is a wrong one, otherwise False
-        """
-
-        if not dams:
-            return False
-
-        for dam in dams:
-            if not os.path.isdir(dam) and not os.path.isfile(dam):
-                return False
-        return True
-
     def release_the_watch_dog(self, new_dams=None):
 
         if new_dams is not None:
-            if self.are_valid_dams(new_dams):
+            if are_valid_paths(new_dams):
                 self.dams = new_dams
             else:
                 raise ValueError("Invalid dams, please check the paths")
@@ -70,7 +52,7 @@ class FileSystemWatchDog:
                 return {'dam': output[0], DAM_EVENT: output[1], DAM_ON: output[-1]}
 
             # subprocess starts and its pid is saved
-            dam_process = Popen(__compose_command(dams), stdin=PIPE, stdout=PIPE, stderr=PIPE, preexec_fn=os.setsid)
+            dam_process = Popen(__compose_command(dams), stdin=PIPE, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             subprocess_pid.value = dam_process.pid
 
             # loop checks subprocess' output
@@ -98,7 +80,7 @@ class FileSystemWatchDog:
     def hold_on_to_the_watch_dog(self):
 
         if self.subprocess_pid.value != -1:
-            os.killpg(os.getpgid(self.subprocess_pid.value), SIGKILL)
+            killpg(getpgid(self.subprocess_pid.value), SIGKILL)
 
         if self.process.is_alive():
             self.process.terminate()
