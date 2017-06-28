@@ -4,7 +4,6 @@ from multiprocessing import Process, Manager
 from os import setsid, getpgid, killpg
 from utils import are_valid_paths
 
-
 DAM_EVENT = 'dam_event'
 DAM_ON = 'on'
 
@@ -16,7 +15,9 @@ MODIFY = 'modify'
 MOVE = 'move'
 DELETE = 'delete'
 FORMAT = '--format'
-PATTERN = '"%w,%e,%f"'
+TIME_FORMAT = '--timefmt'
+TIME_PATTERN = '%d/%m/%y'
+PATTERN = '"path":"%w","event":{"time":"%T","target":"%f","events":"%Xe"}'
 
 
 class FileSystemWatchDog:
@@ -44,11 +45,13 @@ class FileSystemWatchDog:
             # compose the command to call inotify for watching the list of paths
             def __compose_command(dam_path):
                 return [INOTIFY, MONITOR_RECURSIVE, EVENT, ','.join([CREATE, MODIFY, MOVE, DELETE])] + \
-                       [FORMAT, PATTERN] + dam_path
+                       [FORMAT, PATTERN,TIME_FORMAT,TIME_PATTERN] + dam_path
 
             # parse output string
             def __parse_event_output(output):
-                output = [piece.replace('"', '') for piece in output.rstrip().split(',')]
+                print(output)
+                clean_output = output.rstrip()
+                output = [piece.replace('"', '') for piece in output.rstrip().split('##')]
                 return {'dam': output[0], DAM_EVENT: output[1], DAM_ON: output[-1]}
 
             # subprocess starts and its pid is saved
