@@ -23,19 +23,23 @@ from watch_dog import FileSystemWatchDog
 def run():
 
     watch_dog = FileSystemWatchDog(['/home/test_01','/home/test_02'])
-    watch_dog.release_the_watch_dog()
 
-    input()
-    
-    dam_list = watch_dog.get_caught_dams()
-    
-    if dam_list is not None:
-        for dam in dam_list:
-            print(dam.path)
-            for event in dam.events:
-                print(event.__dict__)
+    try:
 
-    watch_dog.hold_on_to_the_watch_dog()
+        watch_dog.release_the_watch_dog()
+
+        input()
+
+        result = watch_dog.get_caught_dams()
+
+        if result is not None:
+            for dam in result:
+                print(dam.path)
+                for event in dam.events:
+                    print(event.__dict__)
+
+    finally:
+        watch_dog.hold_on_to_the_watch_dog()
 
 if __name__ == "__main__":
     run()
