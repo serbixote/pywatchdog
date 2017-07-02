@@ -1,0 +1,7 @@
+events_to_watch:
+  - create
+  - modify
+  - move
+  - delete
+
+date_format: '%D %R:%S'
