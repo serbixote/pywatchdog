@@ -1,11 +1,10 @@
 from _signal import SIGKILL
-from subprocess import Popen, PIPE
 from multiprocessing import Process, Manager
 from os import setsid, getpgid, killpg
+from subprocess import Popen, PIPE
+from models import Dam
 from utils import are_valid_paths
 
-DAM_EVENT = 'dam_event'
-DAM_ON = 'on'
 
 INOTIFY = 'inotifywait'
 MONITOR_RECURSIVE = '-rm'
@@ -17,7 +16,7 @@ DELETE = 'delete'
 FORMAT = '--format'
 TIME_FORMAT = '--timefmt'
 TIME_PATTERN = '%d/%m/%y'
-PATTERN = '"path":"%w","event":{"time":"%T","target":"%f","events":"%Xe"}'
+PATTERN = '{"path":"%w","event":{"time":"%T","target":"%f","events":"%Xe"}}'
 
 
 class FileSystemWatchDog:
@@ -28,9 +27,9 @@ class FileSystemWatchDog:
 
         self.dams = dams
         self.process = None
-        self.manager = Manager()
-        self.subprocess_pid = self.manager.Value('pid', -1)
-        self.caught_dams = self.manager.dict()
+        self.caught_dams = {}
+        self.subprocess_pid = Manager().Value('pid', -1)
+        self.output_list = Manager().list()
 
     def release_the_watch_dog(self, new_dams=None):
 
@@ -40,19 +39,12 @@ class FileSystemWatchDog:
             else:
                 raise ValueError("Invalid dams, please check the paths")
 
-        def __watch_dog_handler(dams, caught_dams, subprocess_pid):
+        def __watch_dog_handler(dams, subprocess_pid, shared_list):
 
             # compose the command to call inotify for watching the list of paths
-            def __compose_command(dam_path):
+            def __compose_command(dam_path_list):
                 return [INOTIFY, MONITOR_RECURSIVE, EVENT, ','.join([CREATE, MODIFY, MOVE, DELETE])] + \
-                       [FORMAT, PATTERN,TIME_FORMAT,TIME_PATTERN] + dam_path
-
-            # parse output string
-            def __parse_event_output(output):
-                print(output)
-                clean_output = output.rstrip()
-                output = [piece.replace('"', '') for piece in output.rstrip().split('##')]
-                return {'dam': output[0], DAM_EVENT: output[1], DAM_ON: output[-1]}
+                       [FORMAT, PATTERN, TIME_FORMAT, TIME_PATTERN] + dam_path_list
 
             # subprocess starts and its pid is saved
             dam_process = Popen(__compose_command(dams), stdin=PIPE, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
@@ -64,21 +56,26 @@ class FileSystemWatchDog:
                 event_output = dam_process.stdout.readline().decode('utf-8')
 
                 if event_output:
-                    caught_dam = __parse_event_output(event_output)
-                    event_key = caught_dam['dam']
-                    del caught_dam['dam']
-
-                    if event_key in caught_dams:
-                        caught_dams[event_key] = caught_dams[event_key] + [caught_dam]
-                    else:
-                        caught_dams[event_key] = [caught_dam]
+                    shared_list.append(event_output)
 
         # process starts __watch_dog_handler
-        self.process = Process(target=__watch_dog_handler, args=(self.dams, self.caught_dams, self.subprocess_pid))
+        self.process = Process(target=__watch_dog_handler, args=(self.dams, self.subprocess_pid, self.output_list))
         self.process.start()
 
     def get_caught_dams(self):
-        return self.caught_dams if self.caught_dams else None
+
+        for output in self.output_list:
+
+            path, event_dict = Dam.get_path_and_event_dict(output)
+
+            if path not in self.caught_dams:
+                self.caught_dams[path] = Dam(path, event_dict)
+            else:
+                self.caught_dams[path].add_event(path,event_dict)
+
+            self.output_list.remove(output)
+
+        return self.caught_dams.values() if self.caught_dams else None
 
     def hold_on_to_the_watch_dog(self):
 

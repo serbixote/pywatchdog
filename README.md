@@ -18,22 +18,44 @@ The installation as pip package not available yet.
 
 ## Usage
 ```python
+from watch_dog import FileSystemWatchDog
+
 def run():
-    watch_dog = FileSystemWatchDog(['/home/myuser/Documents/myfolder_01','/home/myuser/Documents/myfolder_02'])
-    
-    # It starts to monitoring the given paths
+
+    watch_dog = FileSystemWatchDog(['/home/test_01','/home/test_02'])
     watch_dog.release_the_watch_dog()
-    input('Press to see the events...')
+
+    input()
     
-    # show the current caught events without stop it the monitoring task
-    print(watch_dog.get_caught_dams())
+    dam_list = watch_dog.get_caught_dams()
     
-    # it kills the process and subprocess released, otherwise they will be running until computer is turned off
+    if dam_list is not None:
+        for dam in dam_list:
+            print(dam.path)
+            for event in dam.events:
+                print(event.__dict__)
+
     watch_dog.hold_on_to_the_watch_dog()
 
 if __name__ == "__main__":
     run()
 
+```
+
+input:
+
+```
+/home/test_01/
+{'target': '.new_file.txt.swp', 'time': '02/07/17', 'events': 'CREATE'}
+{'target': '.new_file.txt.swp', 'time': '02/07/17', 'events': 'DELETE'}
+{'target': '.new_file.txt.swp', 'time': '02/07/17', 'events': 'MODIFY'}
+{'target': 'new_file.txt', 'time': '02/07/17', 'events': 'MODIFY'}
+/home/test_02/test_folder/
+{'target': '.new_file_02.txt.swp', 'time': '02/07/17', 'events': 'CREATE'}
+{'target': '.new_file_02.txt.swp', 'time': '02/07/17', 'events': 'DELETE'}
+{'target': '.new_file_02.txt.swp', 'time': '02/07/17', 'events': 'MODIFY'}
+{'target': 'new_file_02.txt', 'time': '02/07/17', 'events': 'MODIFY'}
+{'target': 'new_file_02.txt', 'time': '02/07/17', 'events': 'DELETE'}
 ```
 
 ## Contributing
