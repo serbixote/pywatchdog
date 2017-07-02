@@ -7,7 +7,11 @@
 
 * **inotifywatch** collects filesystem usage statistics and outputs counts of each inotify event.
 
-##### Pywatchdog is a simple python script that uses **inotifywait** for monitoring filesystem events from a python application in a easy way. #####
+[man-pages inotifywait reference](http://man7.org/linux/man-pages/man1/inotifywait.1.html)
+##### Pywatchdog is a simple python code that uses **inotifywait** for monitoring filesystem events from a python application in a easy way. #####
+## Dependencies
+* Linux ≥ 2.6.13
+* PyYAML
 
 ## Installation
 ```sh

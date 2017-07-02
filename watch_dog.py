@@ -74,7 +74,7 @@ class FileSystemWatchDog:
 
         while self.output_list:
 
-            output = self.output_list.pop(0)
+            output = self.output_list.pop()
             dam_path, event_dict = Dam.get_path_and_event_dict(output)
 
             if dam_path not in self.caught_dams:
