@@ -85,7 +85,7 @@ class FileSystemWatchDog:
         self.process = Process(target=__watch_dog_handler, args=(self.dams, self.subprocess_pid, self.output_list))
         self.process.start()
 
-    def get_caught_dams(self, path):
+    def get_caught_dams(self, caught_path=None):
         """
         Iterate ListProxy parsing result to caught_dams dictionary.
 
@@ -93,23 +93,32 @@ class FileSystemWatchDog:
         """
         while self.output_list:
 
-            output = self.output_list.pop()
-            dam_path, event_dict = Dam.get_path_and_event_dict(output)
+            output_item = self.output_list.pop()
+            dam_path, event_dict = Dam.get_path_and_event_dict(output_item)
 
             if dam_path not in self.caught_dams:
                 self.caught_dams[dam_path] = Dam(dam_path, event_dict)
             else:
                 self.caught_dams[dam_path].add_event(dam_path, event_dict)
 
-        return self.caught_dams.values() if self.caught_dams else None
+        if caught_path:
+            return self.caught_dams.get(caught_path)
+        else:
+            return self.caught_dams.values() if self.caught_dams else None
 
     def hold_on_to_the_watch_dog(self):
         """
         Kill subprocess by the pid and the Process if is still alive.
         """
+        try:
 
-        if self.subprocess_pid.value != -1:
-            killpg(getpgid(self.subprocess_pid.value), SIGKILL)
+            if self.subprocess_pid.value != -1:
+                killpg(getpgid(self.subprocess_pid.value), SIGKILL)
 
-        if self.process.is_alive():
-            self.process.terminate()
+        except ProcessLookupError:
+            pass
+
+        finally:
+
+            if self.process.is_alive():
+                self.process.terminate()
