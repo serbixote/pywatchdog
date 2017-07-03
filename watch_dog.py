@@ -19,6 +19,11 @@ EVENT_FORMAT = '{"path": "%w", "event": {"time":"%T", "target":"%f", "events":"%
 class FileSystemWatchDog:
 
     def __init__(self, dams=None):
+        """
+        Check paths exists, raise ValueError if any path does not exists.
+
+        :param dams: list of paths for watching.
+        """
         if dams is not None and not are_valid_paths(dams):
             raise ValueError("Invalid dams, please check the paths")
 
@@ -31,6 +36,12 @@ class FileSystemWatchDog:
 
     def release_the_watch_dog(self, new_dams=None):
 
+        """
+        Watching starts in a new process.
+
+        :param new_dams:
+        :return:
+        """
         if new_dams is not None:
             if are_valid_paths(new_dams):
                 self.dams = new_dams
@@ -38,7 +49,14 @@ class FileSystemWatchDog:
                 raise ValueError("Invalid dams, please check the paths")
 
         def __watch_dog_handler(dams, subprocess_pid, shared_list):
+            """
+            This method is executed in a different process that keep reading the output of the
+            subprocess created with the inotifywait command.
 
+            :param dams: list of paths for watching.
+            :param subprocess_pid: Value object to hold the pid of the subprocess.
+            :param shared_list: ListProxy object created by the Manager object to share date between process.
+            """
             # compose the command to call inotify for watching the list of paths
             def __compose_command(dam_path_list):
 
@@ -54,11 +72,9 @@ class FileSystemWatchDog:
                 command += dam_path_list
                 return command
 
-            # subprocess starts and its pid is saved
             dam_process = Popen(__compose_command(dams), stdin=PIPE, stdout=PIPE, stderr=PIPE, preexec_fn=setsid)
             subprocess_pid.value = dam_process.pid
 
-            # loop checks subprocess' output
             while dam_process.poll() is None:
 
                 event_output = dam_process.stdout.readline().decode('utf-8')
@@ -66,12 +82,15 @@ class FileSystemWatchDog:
                 if event_output:
                     shared_list.append(event_output)
 
-        # process starts __watch_dog_handler
         self.process = Process(target=__watch_dog_handler, args=(self.dams, self.subprocess_pid, self.output_list))
         self.process.start()
 
-    def get_caught_dams(self):
+    def get_caught_dams(self, path):
+        """
+        Iterate ListProxy parsing result to caught_dams dictionary.
 
+        :return: return a values list of the caught_dams dictionary.
+        """
         while self.output_list:
 
             output = self.output_list.pop()
@@ -85,6 +104,9 @@ class FileSystemWatchDog:
         return self.caught_dams.values() if self.caught_dams else None
 
     def hold_on_to_the_watch_dog(self):
+        """
+        Kill subprocess by the pid and the Process if is still alive.
+        """
 
         if self.subprocess_pid.value != -1:
             killpg(getpgid(self.subprocess_pid.value), SIGKILL)
